@@ -1,0 +1,216 @@
+{{ 'collection-product-card.css' | asset_url | stylesheet_tag }}
+{{ 'collection-product-card.js' | asset_url | script_tag }}
+
+{%- if card_product and card_product != empty -%}
+
+
+
+<div class="collection-product-card">
+  <div class="collection-product-image-wrapper">
+    {% if card_product.tags contains 'bestseller' or card_product.tags contains 'best-seller' %}
+      <div class="collection-badge collection-best-seller-badge">Best Seller</div>
+    {% endif %}
+
+    <!-- Judge.me Rating Overlay -->
+    <div class="collection-reviews-overlay" 
+         data-product-id="{{ card_product.id }}" 
+         data-product-handle="{{ card_product.handle }}" 
+         style="display: none;">
+      <span class="collection-rating-number">0</span>
+      <span class="collection-star">★</span>
+      <span class="collection-review-separator">|</span>
+      <span class="collection-review-count">0</span>
+    </div>
+
+    <!-- Hidden Judge.me Widget -->
+    <div style="display: none;">
+      <span class="jdgm-widget jdgm-preview-badge jdgm-prev-badge" 
+           data-id="{{ card_product.id }}" 
+           data-template="collection"
+           data-product-id="{{ card_product.id }}"
+           data-product-handle="{{ card_product.handle }}">
+        {{ card_product.metafields.judgeme.badge }}
+      </span>
+    </div>
+
+    <!-- Image with Hover Effect -->
+    <a href="{{ card_product.url }}" class="collection-image-wrapper">
+      {% if card_product.images.size > 1 %}
+        <img src="{{ card_product.images[0] | img_url: 'master' }}" 
+             alt="{{ card_product.title }}" 
+             class="collection-product-image primary"
+             loading="lazy">
+        <img src="{{ card_product.images[1] | img_url: 'master' }}" 
+             alt="{{ card_product.title }}" 
+             class="collection-product-image secondary"
+             loading="lazy">
+      {% else %}
+        <img src="{{ card_product.featured_image | img_url: 'master' }}" 
+             alt="{{ card_product.title }}" 
+             class="collection-product-image">
+      {% endif %}
+    </a>
+  </div>
+
+  <div class="collection-product-details">
+   <a href="{{ card_product.url }}" class="collection-product-title">
+  {% assign full_title = card_product.title %}
+  
+  {% if full_title contains '|' %}
+      {% assign clean_title = full_title | split: '|' | first %}
+      {{ clean_title | strip }}
+  {% else %}
+      {{ full_title }}
+  {% endif %}
+</a>
+
+   {% assign product_beni = card_product.metafields.custom.product_beni %}
+{% if product_beni != blank %}
+  <div class="product-concern" style="color: #28a745; margin-top: 5px;">
+    {{ product_beni | newline_to_br }}
+  </div>
+{% endif %}
+
+    {% assign current_variant = card_product.selected_or_first_available_variant %}
+    {% if current_variant.available %}
+   <div class="collection-product-price">
+  <span class="collection-price-current">
+    {{ current_variant.price | money_without_trailing_zeros }}
+  </span>
+
+  {% if current_variant.compare_at_price > current_variant.price %}
+    <span class="collection-price-compare">
+      {{ current_variant.compare_at_price | money_without_trailing_zeros }}
+    </span>
+
+    {% assign discount_amount = current_variant.compare_at_price | minus: current_variant.price %}
+    {% assign discount_percentage = discount_amount | times: 100 | divided_by: current_variant.compare_at_price | round %}
+
+    <span class="collection-price-discount">
+      {{ discount_percentage }}% off
+    </span>
+  {% endif %}
+</div>
+
+    {% else %}
+      <div class="collection-product-price">
+        <span class="collection-price-current" style="color: #999;">Sold Out</span>
+      </div>
+    {% endif %}
+
+    <div class="collection-add-to-cart-section">
+      {% liquid
+        assign product_form_id = 'collection-add-' | append: card_product.id
+        assign qty_rules = false
+        if card_product.selected_or_first_available_variant.quantity_rule.min > 1 or card_product.selected_or_first_available_variant.quantity_rule.max != null or card_product.selected_or_first_available_variant.quantity_rule.increment > 1
+          assign qty_rules = true
+        endif
+      %}
+
+      {% if card_product.variants.size > 1 or qty_rules %}
+        <button
+          type="button"
+          class="collection-add-to-cart-btn"
+          onclick="window.location.href='{{ card_product.url }}'">
+          Choose Options
+        </button>
+      {% else %}
+        {% if current_variant.available %}
+
+          <product-form data-section-id="{{ section.id }}">
+            {% form 'product', card_product, id: product_form_id, class: 'collection-product-form', novalidate: 'novalidate', data-type: 'add-to-cart-form' %}
+              <input
+                type="hidden"
+                name="id"
+                value="{{ card_product.selected_or_first_available_variant.id }}"
+                class="product-variant-id"
+                disabled
+              >
+              <button
+                id="{{ product_form_id }}-submit"
+                type="submit"
+                name="add"
+                class="collection-add-to-cart-btn">
+                Add To Cart
+
+                <div class="loading-overlay__spinner hidden">
+                  <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                  </svg>
+                </div>
+              </button>
+            {% endform %}
+          </product-form>
+        {% else %}
+          <button
+            type="button"
+            class="collection-notify-me-btn"
+            data-product-id="{{ card_product.id }}"
+            data-product-title="{{ card_product.title | escape }}"
+            data-product-handle="{{ card_product.handle }}"
+            data-variant-id="{{ current_variant.id }}"
+            onclick="openNotifyModal('{{ card_product.title | escape }}', '{{ card_product.handle }}', '{{ current_variant.id }}', '{{ card_product.id }}')">
+            Notify Me
+          </button>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Notify Me Modal -->
+<div id="notify-modal-overlay" class="notify-modal-overlay" style="display: none;" onclick="closeNotifyModal()">
+  <div class="notify-modal-content" onclick="event.stopPropagation()">
+    <button class="notify-modal-close" onclick="closeNotifyModal()">&times;</button>
+    
+    <h2 class="notify-modal-title">Get Notified When Back in Stock</h2>
+    <p class="notify-modal-subtitle" id="notify-product-name"></p>
+    
+    {% assign notify_form_id = 'notify-me-form-' | append: card_product.id %}
+    
+    <div id="notify-form-container">
+      {% form 'contact', id: notify_form_id, class: 'notify-form' %}
+        {% if form.posted_successfully? %}
+          <div class="notify-success-message">
+            <svg width="50" height="50" viewBox="0 0 50 50" style="margin-bottom: 15px;">
+              <circle cx="25" cy="25" r="24" fill="#28a745" stroke="#fff" stroke-width="2"/>
+              <path d="M15 25 L22 32 L35 18" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </svg>
+            <h3 style="color: #28a745; margin: 0 0 10px 0;">Thank You!</h3>
+            <p style="color: #666; margin: 0;">You'll be notified when this product is back in stock at <strong>{{ form.email }}</strong></p>
+          </div>
+        {% elsif form.errors %}
+          <div class="notify-error-message">
+            {{ form.errors | default_errors }}
+          </div>
+        {% endif %}
+
+        <input 
+          type="email" 
+          name="contact[email]" 
+          id="notify-email-input"
+          placeholder="Enter your email" 
+          required
+          class="notify-email-input"
+          value="{{ form.email }}">
+        
+        <input 
+          type="hidden" 
+          name="contact[subject]" 
+          id="notify-subject"
+          value="Back in Stock Request">
+        
+        <input 
+          type="hidden" 
+          name="contact[body]" 
+          id="notify-body">
+        
+        <button type="submit" class="notify-submit-btn">
+          Subscribe Now
+        </button>
+      {% endform %}
+    </div>
+  </div>
+</div>
+
+{%- endif -%}
